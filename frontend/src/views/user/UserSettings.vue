@@ -1,13 +1,12 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { startRegistration } from '@simplewebauthn/browser';
 
 import { useGlobalState } from '../../store'
 import { api } from '../../api'
 
 const { userJwt, userSettings, } = useGlobalState()
-const router = useRouter()
 const message = useMessage()
 
 const showLogout = ref(false)
@@ -18,11 +17,17 @@ const { t } = useI18n({
             logout: 'Logout',
             logoutConfirm: 'Are you sure you want to logout?',
             passordTip: 'The server will only receive the hash value of the password, and will not receive the plaintext password, so it cannot view or retrieve your password. If the administrator enables email verification, you can reset the password in incognito mode',
+            createPasskey: 'Create Passkey',
+            viewPasskeys: 'View Passkeys',
+            passkeyCreated: 'Passkey created successfully',
         },
         zh: {
             logout: '退出登录',
             logoutConfirm: '确定要退出登录吗？',
             passordTip: '服务器只会接收到密码的哈希值，不会接收到明文密码，因此无法查看或者找回您的密码, 如果管理员启用了邮件验证您可以在无痕模式重置密码',
+            createPasskey: '创建 Passkey',
+            viewPasskeys: '查看 Passkeys',
+            passkeyCreated: 'Passkey 创建成功',
         }
     }
 });
@@ -33,17 +38,45 @@ const logout = async () => {
     location.reload()
 }
 
-const fetchData = async () => {
-}
+const createPasskey = async () => {
+    try {
+        const options = await api.fetch(`/user_api/passkey/register_request`, {
+            method: 'POST',
+            body: JSON.stringify({
+                domain: location.hostname,
+            })
+        })
+        const credential = await startRegistration(options)
 
-onMounted(async () => {
-    await fetchData()
-})
+        // Send the result to the server and return the promise.
+        await api.fetch(`/user_api/passkey/register_response`, {
+            method: 'POST',
+            body: JSON.stringify({
+                origin: location.origin,
+                passkey_name: (
+                    (window.navigator.userAgentData?.platform || "Unknown")
+                    + ": " + Math.random().toString(36).substring(7)
+                ),
+                credential
+            })
+        })
+        message.success(t('passkeyCreated'));
+    } catch (e) {
+        console.error(e)
+        message.error(e.message)
+    }
+}
 </script>
 
 <template>
     <div class="center" v-if="userSettings.user_email">
         <n-card :bordered="false" embedded>
+            <n-button secondary block strong>
+                {{ t('viewPasskeys') }}
+            </n-button>
+            <n-button @click="createPasskey" type="primary" secondary block strong>
+                {{ t('createPasskey') }}
+            </n-button>
             <n-alert :show-icon="false" :bordered="false">
                 <span>
                     {{ t('passordTip') }}
@@ -78,5 +111,6 @@ onMounted(async () => {
 
 .n-button {
     margin-top: 10px;
+    margin-bottom: 10px;
 }
 </style>
