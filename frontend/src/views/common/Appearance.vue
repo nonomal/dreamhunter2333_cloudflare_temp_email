@@ -5,8 +5,8 @@ import { useIsMobile } from '../../utils/composables'
 import { useGlobalState } from '../../store'
 
 const {
-    mailboxSplitSize, useIframeShowMail, preferShowTextMail,
-    globalTabplacement, useSideMargin
+    mailboxSplitSize, useIframeShowMail, preferShowTextMail, configAutoRefreshInterval,
+    globalTabplacement, useSideMargin, useUTCDate
 } = useGlobalState()
 const isMobile = useIsMobile()
 
@@ -22,6 +22,8 @@ const { t } = useI18n({
             top: 'top',
             right: 'right',
             bottom: 'bottom',
+            useUTCDate: 'Use UTC Date',
+            autoRefreshInterval: 'Auto Refresh Interval(Sec)',
         },
         zh: {
             mailboxSplitSize: '邮箱界面分栏大小',
@@ -33,6 +35,8 @@ const { t } = useI18n({
             top: '顶部',
             right: '右侧',
             bottom: '底部',
+            useUTCDate: '使用 UTC 时间',
+            autoRefreshInterval: '自动刷新间隔(秒)',
         }
     }
 });
@@ -48,11 +52,19 @@ const { t } = useI18n({
                     0.75: '0.75'
                 }" />
             </n-form-item-row>
+            <n-form-item-row :label="t('autoRefreshInterval')">
+                <n-slider v-model:value="configAutoRefreshInterval" :min="30" :max="300" :step="1" :marks="{
+                    60: '60', 120: '120', 180: '180', 240: '240'
+                }" />
+            </n-form-item-row>
             <n-form-item-row :label="t('preferShowTextMail')">
                 <n-switch v-model:value="preferShowTextMail" :round="false" />
             </n-form-item-row>
             <n-form-item-row :label="t('useIframeShowMail')">
                 <n-switch v-model:value="useIframeShowMail" :round="false" />
+            </n-form-item-row>
+            <n-form-item-row :label="t('useUTCDate')">
+                <n-switch v-model:value="useUTCDate" :round="false" />
             </n-form-item-row>
             <n-form-item-row v-if="!isMobile" :label="t('useSideMargin')">
                 <n-switch v-model:value="useSideMargin" :round="false" />

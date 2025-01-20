@@ -28,7 +28,7 @@ const { t } = useI18n({
             enableUserRegister: "允许用户注册",
             enableMailVerify: '启用邮件验证(发送地址必须是系统中能有余额且能正常发送邮件的地址)',
             verifyMailSender: '验证邮件发送地址',
-            enableMailAllowList: '启用邮件地址白名单(可手动输入)',
+            enableMailAllowList: '启用邮件地址白名单(可手动输入, 回车增加)',
             mailAllowList: '邮件地址白名单',
             maxAddressCount: '可绑定最大邮箱地址数量',
         }
@@ -92,8 +92,8 @@ onMounted(async () => {
                         <n-checkbox v-model:checked="userSettings.enableMailVerify" style="width: 20%;">
                             {{ t('enable') }}
                         </n-checkbox>
-                        <n-input v-model:value="userSettings.verifyMailSender" style="width: 80%;"
-                            :placeholder="t('verifyMailSender')" />
+                        <n-input v-model:value="userSettings.verifyMailSender" v-if="userSettings.enableMailVerify"
+                            style="width: 80%;" :placeholder="t('verifyMailSender')" />
                     </n-input-group>
                 </n-form-item-row>
                 <n-form-item-row :label="t('enableMailAllowList')">
@@ -101,8 +101,9 @@ onMounted(async () => {
                         <n-checkbox v-model:checked="userSettings.enableMailAllowList" style="width: 20%;">
                             {{ t('enable') }}
                         </n-checkbox>
-                        <n-select v-model:value="userSettings.mailAllowList" filterable multiple tag style="width: 80%;"
-                            :options="mailAllowOptions" :placeholder="t('mailAllowList')" />
+                        <n-select v-model:value="userSettings.mailAllowList" v-if="userSettings.enableMailAllowList"
+                            filterable multiple tag style="width: 80%;" :options="mailAllowOptions"
+                            :placeholder="t('mailAllowList')" />
                     </n-input-group>
                 </n-form-item-row>
                 <n-form-item-row :label="t('maxAddressCount')">

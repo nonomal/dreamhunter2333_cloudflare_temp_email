@@ -19,6 +19,7 @@ api.get('/open_api/settings', async (c) => {
         "title": c.env.TITLE,
         "announcement": getStringValue(c.env.ANNOUNCEMENT),
         "prefix": c.env.PREFIX,
+        "addressRegex": getStringValue(c.env.ADDRESS_REGEX),
         "minAddressLen": getIntValue(c.env.MIN_ADDRESS_LEN, 1),
         "maxAddressLen": getIntValue(c.env.MAX_ADDRESS_LEN, 30),
         "defaultDomains": getDefaultDomains(c),
@@ -27,6 +28,7 @@ api.get('/open_api/settings', async (c) => {
         "needAuth": needAuth,
         "adminContact": c.env.ADMIN_CONTACT,
         "enableUserCreateEmail": getBooleanValue(c.env.ENABLE_USER_CREATE_EMAIL),
+        "disableAnonymousUserCreateEmail": getBooleanValue(c.env.DISABLE_ANONYMOUS_USER_CREATE_EMAIL),
         "enableUserDeleteEmail": getBooleanValue(c.env.ENABLE_USER_DELETE_EMAIL),
         "enableAutoReply": getBooleanValue(c.env.ENABLE_AUTO_REPLY),
         "enableIndexAbout": getBooleanValue(c.env.ENABLE_INDEX_ABOUT),
@@ -36,6 +38,7 @@ api.get('/open_api/settings', async (c) => {
         "isS3Enabled": isS3Enabled(c),
         "version": CONSTANTS.VERSION,
         "showGithub": !getBooleanValue(c.env.DISABLE_SHOW_GITHUB),
+        "disableAdminPasswordCheck": getBooleanValue(c.env.DISABLE_ADMIN_PASSWORD_CHECK)
     });
 })
 

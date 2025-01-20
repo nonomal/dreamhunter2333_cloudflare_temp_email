@@ -42,9 +42,11 @@ app.use('/*', async (c, next) => {
 			}
 		}
 	}
+	// webhook check
 	if (
 		c.req.path.startsWith("/api/webhook")
 		|| c.req.path.startsWith("/admin/webhook")
+		|| c.req.path.startsWith("/admin/mail_webhook")
 	) {
 		if (!c.env.KV) {
 			return c.text("KV is not available", 400);
@@ -52,6 +54,12 @@ app.use('/*', async (c, next) => {
 		if (!getBooleanValue(c.env.ENABLE_WEBHOOK)) {
 			return c.text("Webhook is disabled", 403);
 		}
+	}
+	if (!c.env.DB) {
+		return c.text("DB is not available", 400);
+	}
+	if (!c.env.JWT_SECRET) {
+		return c.text("JWT_SECRET is not set", 400);
 	}
 	await next()
 });
@@ -124,6 +132,8 @@ app.use('/user_api/*', async (c, next) => {
 		|| c.req.path.startsWith("/user_api/register")
 		|| c.req.path.startsWith("/user_api/login")
 		|| c.req.path.startsWith("/user_api/verify_code")
+		|| c.req.path.startsWith("/user_api/passkey/authenticate_")
+		|| c.req.path.startsWith("/user_api/oauth2")
 	) {
 		await next();
 		return;
@@ -152,6 +162,7 @@ app.use('/user_api/*', async (c, next) => {
 });
 // admin auth
 app.use('/admin/*', async (c, next) => {
+
 	// check header x-admin-auth
 	const adminPasswords = getAdminPasswords(c);
 	if (adminPasswords && adminPasswords.length > 0) {
@@ -181,6 +192,13 @@ app.use('/admin/*', async (c, next) => {
 			console.error(e);
 		}
 	}
+
+	// disable admin api check
+	if (getBooleanValue(c.env.DISABLE_ADMIN_PASSWORD_CHECK)) {
+		await next();
+		return;
+	}
+
 	return c.text("Need Admin Password", 401)
 });
 

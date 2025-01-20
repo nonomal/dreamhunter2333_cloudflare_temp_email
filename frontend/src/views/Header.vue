@@ -15,10 +15,11 @@ import { api } from '../api'
 import { getRouterPathWithLang } from '../utils'
 
 const message = useMessage()
+const notification = useNotification()
 
 const {
     toggleDark, isDark, isTelegram, showAdminPage,
-    showAuth, auth, loading, openSettings
+    showAuth, auth, loading, openSettings, userSettings
 } = useGlobalState()
 const route = useRoute()
 const router = useRouter()
@@ -223,12 +224,9 @@ const logoClick = async () => {
 }
 
 onMounted(async () => {
-    await api.getOpenSettings(message);
-    try {
-        await api.getUserSettings(message);
-    } catch (error) {
-        console.error(error);
-    }
+    await api.getOpenSettings(message, notification);
+    // make sure user_id is fetched
+    if (!userSettings.value.user_id) await api.getUserSettings(message);
 });
 </script>
 
@@ -263,7 +261,7 @@ onMounted(async () => {
         <n-modal v-model:show="showAuth" :closable="false" :closeOnEsc="false" :maskClosable="false" preset="dialog"
             :title="t('accessHeader')">
             <p>{{ t('accessTip') }}</p>
-            <n-input v-model:value="auth" type="textarea" :autosize="{ minRows: 3 }" />
+            <n-input v-model:value="auth" type="password" show-password-on="click" />
             <template #action>
                 <n-button :loading="loading" @click="authFunc" type="primary">
                     {{ t('ok') }}

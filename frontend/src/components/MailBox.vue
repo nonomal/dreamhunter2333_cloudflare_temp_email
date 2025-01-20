@@ -3,9 +3,10 @@ import { watch, onMounted, ref, onBeforeUnmount } from "vue";
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useGlobalState } from '../store'
-import { CloudDownloadRound, ReplyFilled } from '@vicons/material'
+import { CloudDownloadRound, ReplyFilled, ForwardFilled } from '@vicons/material'
 import { useIsMobile } from '../utils/composables'
 import { processItem, getDownloadEmlUrl } from '../utils/email-parser'
+import { utcToLocalDate } from '../utils';
 
 const message = useMessage()
 const isMobile = useIsMobile()
@@ -14,46 +15,45 @@ const props = defineProps({
   enableUserDeleteEmail: {
     type: Boolean,
     default: false,
-    requried: false
+    required: false
   },
   showEMailTo: {
     type: Boolean,
     default: true,
-    requried: false
+    required: false
   },
   fetchMailData: {
     type: Function,
     default: () => { },
-    requried: true
+    required: true
   },
   deleteMail: {
     type: Function,
     default: () => { },
-    requried: false
+    required: false
   },
   showReply: {
     type: Boolean,
     default: false,
-    requried: false
+    required: false
   },
   showSaveS3: {
     type: Boolean,
     default: false,
-    requried: false
+    required: false
   },
   saveToS3: {
     type: Function,
     default: (mail_id, filename, blob) => { },
-    requried: false
+    required: false
   },
 })
 
 const {
-  isDark, mailboxSplitSize, indexTab, loading,
+  isDark, mailboxSplitSize, indexTab, loading, useUTCDate, autoRefresh, configAutoRefreshInterval,
   useIframeShowMail, sendMailModel, preferShowTextMail
 } = useGlobalState()
-const autoRefresh = ref(false)
-const autoRefreshInterval = ref(30)
+const autoRefreshInterval = ref(configAutoRefreshInterval.value)
 const data = ref([])
 const timer = ref(null)
 
@@ -85,6 +85,7 @@ const { t } = useI18n({
       delete: 'Delete',
       deleteMailTip: 'Are you sure you want to delete mail?',
       reply: 'Reply',
+      forwardMail: 'Forward',
       showTextMail: 'Show Text Mail',
       showHtmlMail: 'Show Html Mail',
       saveToS3: 'Save to S3',
@@ -104,6 +105,7 @@ const { t } = useI18n({
       delete: '删除',
       deleteMailTip: '确定要删除邮件吗?',
       reply: '回复',
+      forwardMail: '转发',
       showTextMail: '显示纯文本邮件',
       showHtmlMail: '显示HTML邮件',
       saveToS3: '保存到S3',
@@ -116,14 +118,16 @@ const { t } = useI18n({
 });
 
 const setupAutoRefresh = async (autoRefresh) => {
-  // auto refresh every 30 seconds
-  autoRefreshInterval.value = 30;
+  // auto refresh every configAutoRefreshInterval seconds
+  autoRefreshInterval.value = configAutoRefreshInterval.value;
   if (autoRefresh) {
+    clearInterval(timer.value);
     timer.value = setInterval(async () => {
+      if (loading.value) return;
       autoRefreshInterval.value--;
       if (autoRefreshInterval.value <= 0) {
-        autoRefreshInterval.value = 30;
-        await refresh();
+        autoRefreshInterval.value = configAutoRefreshInterval.value;
+        await backFirstPageAndRefresh();
       }
     }, 1000)
   } else {
@@ -134,7 +138,7 @@ const setupAutoRefresh = async (autoRefresh) => {
 
 watch(autoRefresh, async (autoRefresh, old) => {
   setupAutoRefresh(autoRefresh)
-})
+}, { immediate: true })
 
 watch([page, pageSize], async ([page, pageSize], [oldPage, oldPageSize]) => {
   if (page !== oldPage || pageSize !== oldPageSize) {
@@ -166,6 +170,11 @@ const refresh = async () => {
     loading.value = false;
   }
 };
+
+const backFirstPageAndRefresh =  async () =>{
+  page.value = 1;
+  await refresh();
+}
 
 const clickRow = async (row) => {
   if (multiActionMode.value) {
@@ -210,6 +219,15 @@ const replyMail = async () => {
     subject: `${t('reply')}: ${curMail.value.subject}`,
     contentType: 'rich',
     content: curMail.value.text ? `<p><br></p><blockquote>${curMail.value.text}</blockquote><p><br></p>` : '',
+  });
+  indexTab.value = 'sendmail';
+};
+
+const forwardMail = async () => {
+  Object.assign(sendMailModel.value, {
+    subject: `${t('forwardMail')}: ${curMail.value.subject}`,
+    contentType: curMail.value.message ? 'html' : 'text',
+    content: curMail.value.message || curMail.value.text,
   });
   indexTab.value = 'sendmail';
 };
@@ -354,7 +372,7 @@ onBeforeUnmount(() => {
               {{ t('autoRefresh') }}
             </template>
           </n-switch>
-          <n-button @click="refresh" type="primary" tertiary>
+          <n-button @click="backFirstPageAndRefresh" type="primary" tertiary>
             {{ t('refresh') }}
           </n-button>
         </n-space>
@@ -375,7 +393,7 @@ onBeforeUnmount(() => {
                       ID: {{ row.id }}
                     </n-tag>
                     <n-tag type="info">
-                      {{ `${row.created_at} UTC` }}
+                      {{ utcToLocalDate(row.created_at, useUTCDate) }}
                     </n-tag>
                     <n-tag type="info">
                       FROM: {{ row.source }}
@@ -397,7 +415,7 @@ onBeforeUnmount(() => {
                 ID: {{ curMail.id }}
               </n-tag>
               <n-tag type="info">
-                {{ `${curMail.created_at} UTC` }}
+                {{ utcToLocalDate(curMail.created_at, useUTCDate) }}
               </n-tag>
               <n-tag type="info">
                 FROM: {{ curMail.source }}
@@ -427,6 +445,12 @@ onBeforeUnmount(() => {
                   <n-icon :component="ReplyFilled" />
                 </template>
                 {{ t('reply') }}
+              </n-button>
+              <n-button v-if="showReply" size="small" tertiary type="info" @click="forwardMail">
+                <template #icon>
+                  <n-icon :component="ForwardFilled" />
+                </template>
+                {{ t('forwardMail') }}
               </n-button>
               <n-button size="small" tertiary type="info" @click="showTextMail = !showTextMail">
                 {{ showTextMail ? t('showHtmlMail') : t('showTextMail') }}
@@ -458,7 +482,7 @@ onBeforeUnmount(() => {
             {{ t('autoRefresh') }}
           </template>
         </n-switch>
-        <n-button @click="refresh" tertiary size="small" type="primary">
+        <n-button @click="backFirstPageAndRefresh" tertiary size="small" type="primary">
           {{ t('refresh') }}
         </n-button>
       </n-space>
@@ -471,7 +495,7 @@ onBeforeUnmount(() => {
                   ID: {{ row.id }}
                 </n-tag>
                 <n-tag type="info">
-                  {{ `${row.created_at} UTC` }}
+                  {{ utcToLocalDate(row.created_at, useUTCDate) }}
                 </n-tag>
                 <n-tag type="info">
                   FROM: {{ row.source }}
@@ -493,7 +517,7 @@ onBeforeUnmount(() => {
                 ID: {{ curMail.id }}
               </n-tag>
               <n-tag type="info">
-                {{ `${curMail.created_at} UTC` }}
+                {{ utcToLocalDate(curMail.created_at, useUTCDate) }}
               </n-tag>
               <n-tag type="info">
                 FROM: {{ curMail.source }}
@@ -521,6 +545,12 @@ onBeforeUnmount(() => {
                   <n-icon :component="ReplyFilled" />
                 </template>
                 {{ t('reply') }}
+              </n-button>
+              <n-button v-if="showReply" size="small" tertiary type="info" @click="forwardMail">
+                <template #icon>
+                  <n-icon :component="ForwardFilled" />
+                </template>
+                {{ t('forwardMail') }}
               </n-button>
               <n-button size="small" tertiary type="info" @click="showTextMail = !showTextMail">
                 {{ showTextMail ? t('showHtmlMail') : t('showTextMail') }}

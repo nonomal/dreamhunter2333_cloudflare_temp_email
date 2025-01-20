@@ -15,7 +15,7 @@ const props = defineProps({
     bindUserAddress: {
         type: Function,
         default: async () => { await api.bindUserAddress(); },
-        requried: true
+        required: true
     },
     newAddressPath: {
         type: Function,
@@ -29,11 +29,12 @@ const props = defineProps({
                 }),
             });
         },
-        requried: true
+        required: true
     },
 })
 
 const message = useMessage()
+const notification = useNotification()
 const router = useRouter()
 
 const {
@@ -72,7 +73,7 @@ const { locale, t } = useI18n({
             login: 'Login',
             pleaseGetNewEmail: 'Please login or click "Get New Email" button to get a new email address',
             getNewEmail: 'Create New Email',
-            getNewEmailTip1: 'Please input the email you want to use. only allow a-z and 0-9',
+            getNewEmailTip1: 'Please input the email you want to use. only allow: ',
             getNewEmailTip2: 'Levaing it blank will generate a random email address.',
             getNewEmailTip3: 'You can choose a domain from the dropdown list.',
             credential: 'Email Address Credential',
@@ -87,7 +88,7 @@ const { locale, t } = useI18n({
             login: '登录',
             pleaseGetNewEmail: '请"登录"或点击 "注册新邮箱" 按钮来获取一个新的邮箱地址',
             getNewEmail: '创建新邮箱',
-            getNewEmailTip1: '请输入你想要使用的邮箱地址, 只允许 a-z, 0-9',
+            getNewEmailTip1: '请输入你想要使用的邮箱地址, 只允许: ',
             getNewEmailTip2: '留空将会生成一个随机的邮箱地址。',
             getNewEmailTip3: '你可以从下拉列表中选择一个域名。',
             credential: '邮箱地址凭据',
@@ -101,6 +102,18 @@ const { locale, t } = useI18n({
     }
 });
 
+const addressRegex = computed(() => {
+    try {
+        if (openSettings.value.addressRegex) {
+            return new RegExp(openSettings.value.addressRegex, 'g');
+        }
+    } catch (error) {
+        console.error(error);
+        message.error(`Invalid addressRegex: ${openSettings.value.addressRegex}`);
+    }
+    return /[^a-z0-9]/g;
+});
+
 const generateNameLoading = ref(false);
 const generateName = async () => {
     try {
@@ -110,8 +123,12 @@ const generateName = async () => {
             .split('@')[0]
             .replace(/\s+/g, '.')
             .replace(/\.{2,}/g, '.')
-            .replace(/[^a-z0-9]/g, '')
+            .replace(addressRegex.value, '')
             .toLowerCase();
+        // support maxAddressLen
+        if (emailName.value.length > openSettings.value.maxAddressLen) {
+            emailName.value = emailName.value.slice(0, openSettings.value.maxAddressLen);
+        }
     } catch (error) {
         message.error(error.message || "error");
     } finally {
@@ -168,9 +185,18 @@ const domainsOptions = computed(() => {
     });
 });
 
+const showNewAddressTab = computed(() => {
+    if (openSettings.value.disableAnonymousUserCreateEmail
+        && !userSettings.value.user_email
+    ) {
+        return false;
+    }
+    return openSettings.value.enableUserCreateEmail;
+});
+
 onMounted(async () => {
     if (!openSettings.value.domains || openSettings.value.domains.length === 0) {
-        await api.getOpenSettings();
+        await api.getOpenSettings(message, notification);
     }
     emailDomain.value = domainsOptions.value ? domainsOptions.value[0]?.value : "";
 });
@@ -181,7 +207,7 @@ onMounted(async () => {
         <n-alert v-if="userSettings.user_email" :show-icon="false" :bordered="false" closable>
             <span>{{ t('bindUserInfo') }}</span>
         </n-alert>
-        <n-tabs v-model:value="tabValue" size="large" justify-content="space-evenly">
+        <n-tabs v-if="openSettings.fetched" v-model:value="tabValue" size="large" justify-content="space-evenly">
             <n-tab-pane name="signin" :tab="t('login')">
                 <n-form>
                     <n-form-item-row :label="t('credential')" required>
@@ -193,8 +219,7 @@ onMounted(async () => {
                         </template>
                         {{ t('login') }}
                     </n-button>
-                    <n-button v-if="openSettings.enableUserCreateEmail" @click="tabValue = 'register'" block secondary
-                        strong>
+                    <n-button v-if="showNewAddressTab" @click="tabValue = 'register'" block secondary strong>
                         <template #icon>
                             <n-icon :component="NewLabelOutlined" />
                         </template>
@@ -202,11 +227,11 @@ onMounted(async () => {
                     </n-button>
                 </n-form>
             </n-tab-pane>
-            <n-tab-pane v-if="openSettings.enableUserCreateEmail" name="register" :tab="t('getNewEmail')">
+            <n-tab-pane v-if="showNewAddressTab" name="register" :tab="t('getNewEmail')">
                 <n-spin :show="generateNameLoading">
                     <n-form>
                         <span>
-                            <p>{{ t("getNewEmailTip1") }}</p>
+                            <p>{{ t("getNewEmailTip1") + addressRegex.source }}</p>
                             <p>{{ t("getNewEmailTip2") }}</p>
                             <p>{{ t("getNewEmailTip3") }}</p>
                         </span>

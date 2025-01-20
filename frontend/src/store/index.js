@@ -1,5 +1,8 @@
 import { computed, ref } from "vue";
-import { createGlobalState, useStorage, useDark, useToggle, useLocalStorage } from '@vueuse/core'
+import {
+    createGlobalState, useStorage, useDark, useToggle,
+    useLocalStorage, useSessionStorage
+} from '@vueuse/core'
 
 export const useGlobalState = createGlobalState(
     () => {
@@ -8,12 +11,15 @@ export const useGlobalState = createGlobalState(
         const loading = ref(false);
         const announcement = useLocalStorage('announcement', '');
         const openSettings = ref({
+            fetched: false,
             title: '',
             announcement: '',
             prefix: '',
+            addressRegex: '',
             needAuth: false,
             adminContact: '',
             enableUserCreateEmail: false,
+            disableAnonymousUserCreateEmail: false,
             enableUserDeleteEmail: false,
             enableAutoReply: false,
             enableIndexAbout: false,
@@ -26,6 +32,7 @@ export const useGlobalState = createGlobalState(
             enableWebhook: false,
             isS3Enabled: false,
             showGithub: true,
+            disableAdminPasswordCheck: false,
         })
         const settings = ref({
             fetched: false,
@@ -39,7 +46,7 @@ export const useGlobalState = createGlobalState(
                 name: '',
             }
         });
-        const sendMailModel = useStorage('sendMailModel', {
+        const sendMailModel = useSessionStorage('sendMailModel', {
             fromName: "",
             toName: "",
             toMail: "",
@@ -53,20 +60,26 @@ export const useGlobalState = createGlobalState(
         const auth = useStorage('auth', '');
         const adminAuth = useStorage('adminAuth', '');
         const jwt = useStorage('jwt', '');
-        const adminTab = ref("account");
+        const adminTab = useSessionStorage('adminTab', "account");
         const adminMailTabAddress = ref("");
         const adminSendBoxTabAddress = ref("");
         const mailboxSplitSize = useStorage('mailboxSplitSize', 0.25);
         const useIframeShowMail = useStorage('useIframeShowMail', false);
         const preferShowTextMail = useStorage('preferShowTextMail', false);
         const userJwt = useStorage('userJwt', '');
-        const userTab = useStorage('userTab', 'user_settings');
-        const indexTab = useStorage('indexTab', 'mailbox');
+        const userTab = useSessionStorage('userTab', 'user_settings');
+        const indexTab = useSessionStorage('indexTab', 'mailbox');
         const globalTabplacement = useStorage('globalTabplacement', 'top');
         const useSideMargin = useStorage('useSideMargin', true);
+        const useUTCDate = useStorage('useUTCDate', false);
+        const autoRefresh = useStorage('autoRefresh', false);
+        const configAutoRefreshInterval = useStorage("configAutoRefreshInterval", 60);
         const userOpenSettings = ref({
+            fetched: false,
             enable: false,
             enableMailVerify: false,
+            /** @type {{ clientID: string, name: string }[]} */
+            oauth2ClientIDs: [],
         });
         const userSettings = ref({
             /** @type {boolean} */
@@ -82,9 +95,15 @@ export const useGlobalState = createGlobalState(
             /** @type {null | {domains: string[] | undefined | null, role: string, prefix: string | undefined | null}} */
             user_role: null,
         });
-        const showAdminPage = computed(() => !!adminAuth.value || userSettings.value.is_admin);
+        const showAdminPage = computed(() =>
+            !!adminAuth.value
+            || userSettings.value.is_admin
+            || openSettings.value.disableAdminPasswordCheck
+        );
         const telegramApp = ref(window.Telegram?.WebApp || {});
         const isTelegram = ref(!!window.Telegram?.WebApp?.initData);
+        const userOauth2SessionState = useSessionStorage('userOauth2SessionState', '');
+        const userOauth2SessionClientID = useSessionStorage('userOauth2SessionClientID', '');
         return {
             isDark,
             toggleDark,
@@ -112,9 +131,14 @@ export const useGlobalState = createGlobalState(
             userSettings,
             globalTabplacement,
             useSideMargin,
+            useUTCDate,
+            autoRefresh,
+            configAutoRefreshInterval,
             telegramApp,
             isTelegram,
             showAdminPage,
+            userOauth2SessionState,
+            userOauth2SessionClientID,
         }
     },
 )
